@@ -1,0 +1,361 @@
+
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+   <HEAD>
+      <TITLE>
+         Computer algebra. Shatonova L.M.
+      </TITLE>
+   <meta charset = "utf-8">
+   <script src = "jquery-2.1.1.min.js"></script>
+   <script src="http://d3js.org/d3.v3.min.js"></script>
+   <style>
+
+       .node circle {
+           fill: #fff;
+           stroke: darkcyan;
+           stroke-width: 2px;
+       }
+
+       .node text { 
+       	font-family: verdana, sans-serif;
+       	font-size: 12px; 
+       	}
+
+       .link {
+           fill: none;
+           stroke: #ccc;
+           stroke-width: 2px;
+       }
+       
+       .custom {
+	       	height: 27px;
+	       	font-family: verdana, sans-serif;
+	       	font-size: 13px;
+       }
+       
+   </style>
+   </HEAD>
+<BODY>
+
+<FONT face = "verdana" size = "3">
+<P>Input expression:</P>
+</FONT>
+
+<input type = "text" id = "field" class = "custom" size = "70" style = "" autofocus>
+<input type = "button" id = "parse_but" onclick = "parse()" value = "Parse" style = "font-size: 20px;">
+<input type = "button" id = "reset_but" onclick = "reset()" value = "Reset" style = "font-size: 20px;">
+<p id = "output" ></p>
+
+<FONT face = "verdana" size = "2">
+<P>Use next symbols: a-z, 0-9, +, -, *, /, ^, (, ).</P>
+</FONT>
+
+<script>
+$(document).ready(function(){
+    $('#field').keypress(function(e){
+        if(e.keyCode==13)
+            $('#parse_but').click();
+        if(e.keyCode==27)
+            $('#reset_but').click();
+    });
+});
+</script>
+
+<script language="javascript" type="text/javascript">
+
+function parse() {
+	d3.select("svg").remove();
+	var str = document.getElementById("field").value;
+	var stack = [];
+	var c = '';
+	var i;
+	var postf = "";
+	var op = true;
+	var beg = true;
+	var nbrac = 0;
+	
+	var iscorrect = true;
+
+	for (i = 0; i < str.length; i++)
+	{
+		c = str[i];
+		if (c >= 'a' && c <= 'z' && op) //a-z
+		{
+			postf += c + " "; 
+			op = false;
+			beg = false;
+		}
+		else if (c >= '0' && c <= '9' && op) //0-9
+		{
+			while (c >= '0' && c <= '9')
+			{
+				postf += c;
+				i++;
+				c = str[i];
+			}
+			i--;
+			postf += " ";
+			op = false;
+			beg = false;
+		}
+		else if (c == '-')
+		{
+			if (beg && op) //Начало выражения: отрицательное число
+			{
+				postf += "0 ";
+				stack.push(c); 
+			}
+			else if (!beg && !op)//Операнд -
+			{
+				if (stack.length == 0)
+					stack.push(c);
+				else
+				{
+					if (stack[stack.length-1] == '(')
+						stack.push(c);
+					else
+					{
+						while (stack[stack.length-1] != '(')
+						{
+							postf += stack[stack.length-1] + " ";
+							stack.pop();
+							if (stack.length == 0)
+								break;
+						}
+						stack.push(c);
+					}
+				}
+			}
+			else
+				iscorrect = false;
+			
+			op = true;
+			beg = false;
+		}
+		else if (c == '+' && !op)
+		{
+			if (stack.length == 0)
+				stack.push(c);
+			else
+			{
+				if (stack[stack.length-1] == '(')
+					stack.push(c);
+				else
+				{
+					while (stack[stack.length-1] != '(')
+					{
+						postf += stack[stack.length-1] + " ";
+						stack.pop();
+						if (stack.length == 0)
+							break;
+					}
+					stack.push(c);
+				}
+			}
+			op = true;
+			beg = false;
+		}
+		else if ((c == '*' || c == '/') && !op)
+		{
+			if (stack.length == 0)
+				stack.push(c);
+			else
+			{
+				if (stack[stack.length-1] == '(' || stack[stack.length-1] == '+' || stack[stack.length-1] == '-')
+					stack.push(c);
+				else
+				{
+					while (stack[stack.length-1] != '+' && stack[stack.length-1] != '-' && stack[stack.length-1] != '(')
+					{
+						postf += stack[stack.length-1] + " ";
+						stack.pop();
+						if (stack.length == 0)
+							break;
+					}
+					stack.push(c);
+				}
+			}
+			op = true;
+			beg = false;
+		}
+		else if (c == '^' && !op)
+		{
+			if (stack.length == 0)
+				stack.push(c);
+			else
+			{
+				while (stack[stack.length-1] == '^')
+				{
+					postf += stack[stack.length-1] + " ";
+					stack.pop();
+					if (stack.length == 0)
+						break;	
+				}
+				stack.push(c);
+			}
+			op = true;
+			beg = false;
+		}
+		else if (c == '(' && op)
+		{
+			stack.push(c); 
+			op = true;
+			beg = true;
+			nbrac++;
+		}
+		else if (c == ')' && !op && nbrac > 0)
+		{
+			if (str[i-1] != '(')
+			{
+				while (stack[stack.length-1] != '(')
+				{
+					postf += stack[stack.length-1] + " ";
+					stack.pop();
+				}
+				stack.pop();
+				op = false;
+				beg = false;
+				nbrac--;
+			}
+			else
+				iscorrect = false;
+		}
+		else
+			iscorrect = false;
+	}
+	
+	if (nbrac == 0)
+	{
+		while (stack.length != 0)
+		{
+			postf += stack[stack.length-1] + " ";
+			stack.pop();
+		}
+	}
+	else
+		iscorrect = false;
+		
+	var mytree = [];
+	var par = -1;
+	if (iscorrect)
+	{
+		for (i = postf.length-2; i >= 0; i--)
+		{
+			var name = "";
+			while (postf[i] != ' ')
+			{
+				name = postf[i] + name;
+				i--;
+				if (i == -1)
+					break;
+			}
+			op = (name[0] == '+' || name[0] == '-' || name[0] == '*' || name[0] == '/' || name[0] == '^');
+			
+			mytree.push({"name": name, "parent": par,"nchildren":0});
+			
+			if (par != -1)
+			{
+				(mytree[par].children || (mytree[par].children = [])).unshift(mytree[mytree.length-1]);
+				mytree[par].nchildren++;
+			}
+			if (op)
+				par = mytree.length - 1;
+			else
+				mytree[mytree.length - 1].nchildren = 2;
+			
+			while (par!= -1 && mytree[par].nchildren == 2)
+					par = mytree[par].parent;
+		}
+	}
+	
+
+// ************** Generate the tree diagram *****************
+    var margin = {top: 30, right: 0, bottom: 0, left: 0},
+            width = 1000 - margin.right - margin.left,
+            height = 600 - margin.top - margin.bottom;
+    var i = 0;
+
+    var tree = d3.layout.tree()
+            .size([height, width]);
+
+    var diagonal = d3.svg.diagonal()
+            .projection(function (d) {
+                return [d.x, d.y];
+            });
+
+    var svg = d3.select("body").append("svg")
+            .attr("width", width + margin.right + margin.left)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    root = mytree[0];
+    update(root);
+
+    function update(source) {
+
+// Compute the new tree layout.
+        var nodes = tree.nodes(root).reverse(),
+                links = tree.links(nodes);
+
+// Normalize for fixed-depth.
+        nodes.forEach(function (d) {
+            d.y = d.depth * 100;
+        });
+
+// Declare the nodes?
+        var node = svg.selectAll("g.node")
+                .data(nodes, function (d) {
+                    return d.id || (d.id = ++i);
+                });
+
+// Enter the nodes.
+        var nodeEnter = node.enter().append("g")
+                .attr("class", "node")
+                .attr("transform", function (d) {
+                    return "translate(" + d.x + "," + d.y + ")";
+                });
+
+        nodeEnter.append("circle")
+                .attr("r", 10)
+                .style("fill", "#fff");
+
+        nodeEnter.append("text")
+//.attr("y", function(d) {
+//return d.children || d._children ? -18 : 18; })
+                .attr("dy", ".35em")
+                .attr("text-anchor", "middle")
+                .text(function (d) {
+                    return d.name;
+                })
+//.style("fill-opacity", 1);
+
+// Declare the links?
+        var link = svg.selectAll("path.link")
+                .data(links, function (d) {
+                    return d.target.id;
+                });
+
+// Enter the links.
+        link.enter().insert("path", "g")
+                .attr("class", "link")
+                .attr("d", diagonal);
+
+    }
+    if (!iscorrect) {
+        d3.select("svg").remove();
+    }
+   
+}
+
+function reset() {
+    document.getElementById("field").value = '';
+    document.getElementById("output").innerHTML = '';
+    text = '';
+    d3.select("svg").remove();
+
+}
+
+</script>
+</BODY>
+</HTML>
