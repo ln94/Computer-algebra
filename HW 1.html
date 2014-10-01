@@ -66,7 +66,7 @@ $(document).ready(function(){
 function parse() {
 	d3.select("svg").remove();
 	var str = document.getElementById("field").value; //Строка с выражением
-	var stack = [];		//Стек для записи операндов
+	var stack = [];		//Стек для проверки скобок и записи операндов
 	var c = '';		//Текущий символ
 	var i;			//Итератор текущего символа в строке
 	var postf = "";		//Строка, содержащая постфиксную запись
@@ -75,37 +75,109 @@ function parse() {
 	var nbrac = 0;		//Количество скобок
 	
 	var iscorrect = true;	//Корректно ли выражение
-
-	for (i = 0; i < str.length; i++)
+	
+	//Проверка скобок
+	for (i =0; i <str.length; i++)
 	{
 		c = str[i];
-		if (c >= 'a' && c <= 'z' && op) //a-z
+		if (c == '(' || c == '{' || c == '[')
+			stack.push(c);
+		else if (c == ')')
 		{
-			postf += c + " "; 
-			op = false;
-			beg = false;
-		}
-		else if (c >= '0' && c <= '9' && op) //0-9
-		{
-			while (c >= '0' && c <= '9')
+			if (stack[stack.length-1] == '(')
+				stack.pop();
+			else
 			{
-				postf += c;
-				i++;
-				c = str[i];
+				iscorrect = false;
+				break;
 			}
-			i--;
-			postf += " ";
-			op = false;
-			beg = false;
 		}
-		else if (c == '-')
+		else if (c == '}')
 		{
-			if (beg && op) //Начало выражения: отрицательное число
+			if (stack[stack.length-1] == '{')
+				stack.pop();
+			else
 			{
-				postf += "0 ";
-				stack.push(c); 
+				iscorrect = false;
+				break;
 			}
-			else if (!beg && !op)//Операнд -
+		}
+		else if (c == ')')
+		{
+			if (stack[stack.length-1] == '(')
+				stack.pop();
+			else
+			{
+				iscorrect = false;
+				break;
+			}
+		}
+	}
+	
+	//Проверка операндов
+	if (iscorrect)
+	{
+		stack = [];
+		for (i = 0; i < str.length; i++)
+		{
+			c = str[i];
+			if (c >= 'a' && c <= 'z' && op) //a-z
+			{
+				postf += c + " "; 
+				op = false;
+				beg = false;
+			}
+			else if (c >= '0' && c <= '9' && op) //0-9
+			{
+				while (c >= '0' && c <= '9')
+				{
+					postf += c;
+					i++;
+					c = str[i];
+				}
+				i--;
+				postf += " ";
+				op = false;
+				beg = false;
+			}
+			else if (c == '-')
+			{
+				if (beg && op) //Начало выражения: отрицательное число
+				{
+					postf += "0 ";
+					stack.push(c); 
+				}
+				else if (!beg && !op)//Операнд -
+				{
+					if (stack.length == 0)
+						stack.push(c);
+					else
+					{
+						if (stack[stack.length-1] == '(')
+							stack.push(c);
+						else
+						{
+							while (stack[stack.length-1] != '(')
+							{
+								postf += stack[stack.length-1] + " ";
+								stack.pop();
+								if (stack.length == 0)
+									break;
+							}
+							stack.push(c);
+						}
+					}
+				}
+				else
+				{
+					iscorrect = false;
+					break;
+				}
+				
+				op = true;
+				beg = false;
+			}
+			else if (c == '+' && !op)
 			{
 				if (stack.length == 0)
 					stack.push(c);
@@ -125,120 +197,104 @@ function parse() {
 						stack.push(c);
 					}
 				}
-			}
-			else
-				iscorrect = false;
-			
-			op = true;
-			beg = false;
-		}
-		else if (c == '+' && !op)
-		{
-			if (stack.length == 0)
-				stack.push(c);
-			else
-			{
-				if (stack[stack.length-1] == '(')
-					stack.push(c);
-				else
-				{
-					while (stack[stack.length-1] != '(')
-					{
-						postf += stack[stack.length-1] + " ";
-						stack.pop();
-						if (stack.length == 0)
-							break;
-					}
-					stack.push(c);
-				}
-			}
-			op = true;
-			beg = false;
-		}
-		else if ((c == '*' || c == '/') && !op)
-		{
-			if (stack.length == 0)
-				stack.push(c);
-			else
-			{
-				if (stack[stack.length-1] == '(' || stack[stack.length-1] == '+' || stack[stack.length-1] == '-')
-					stack.push(c);
-				else
-				{
-					while (stack[stack.length-1] != '+' && stack[stack.length-1] != '-' && stack[stack.length-1] != '(')
-					{
-						postf += stack[stack.length-1] + " ";
-						stack.pop();
-						if (stack.length == 0)
-							break;
-					}
-					stack.push(c);
-				}
-			}
-			op = true;
-			beg = false;
-		}
-		else if (c == '^' && !op)
-		{
-			if (stack.length == 0)
-				stack.push(c);
-			else
-			{
-				while (stack[stack.length-1] == '^')
-				{
-					postf += stack[stack.length-1] + " ";
-					stack.pop();
-					if (stack.length == 0)
-						break;	
-				}
-				stack.push(c);
-			}
-			op = true;
-			beg = false;
-		}
-		else if (c == '(' && op)
-		{
-			stack.push(c); 
-			op = true;
-			beg = true;
-			nbrac++;
-		}
-		else if (c == ')' && !op && nbrac > 0)
-		{
-			if (str[i-1] != '(')
-			{
-				while (stack[stack.length-1] != '(')
-				{
-					postf += stack[stack.length-1] + " ";
-					stack.pop();
-				}
-				stack.pop();
-				op = false;
+				op = true;
 				beg = false;
-				nbrac--;
+			}
+			else if ((c == '*' || c == '/') && !op)
+			{
+				if (stack.length == 0)
+					stack.push(c);
+				else
+				{
+					if (stack[stack.length-1] == '(' || stack[stack.length-1] == '+' || stack[stack.length-1] == '-')
+						stack.push(c);
+					else
+					{
+						while (stack[stack.length-1] != '+' && stack[stack.length-1] != '-' && stack[stack.length-1] != '(')
+						{
+							postf += stack[stack.length-1] + " ";
+							stack.pop();
+							if (stack.length == 0)
+								break;
+						}
+						stack.push(c);
+					}
+				}
+				op = true;
+				beg = false;
+			}
+			else if (c == '^' && !op)
+			{
+				if (stack.length == 0)
+					stack.push(c);
+				else
+				{
+					while (stack[stack.length-1] == '^')
+					{
+						postf += stack[stack.length-1] + " ";
+						stack.pop();
+						if (stack.length == 0)
+							break;	
+					}
+					stack.push(c);
+				}
+				op = true;
+				beg = false;
+			}
+			else if ((c == '(' || c == '{' || c == '[') && op)
+			{
+				stack.push(c); 
+				op = true;
+				beg = true;
+				nbrac++;
+			}
+			else if ((c == ')' || c == '}' || c == ']') && !op && nbrac > 0)
+			{
+				if (str[i-1] != '(' && str[i-1] != '{' && str[i-1] != '[')
+				{
+					while (stack[stack.length-1] != '(' && str[i-1] != '{' && str[i-1] != '[')
+					{
+						postf += stack[stack.length-1] + " ";
+						stack.pop();
+					}
+					stack.pop();
+					op = false;
+					beg = false;
+					nbrac--;
+				}
+				else
+				{
+					iscorrect = false;
+					break;
+				}
 			}
 			else
+			{
 				iscorrect = false;
+				break;
+			}
+		}
+		
+		if (nbrac == 0)
+		{
+			while (stack.length != 0)
+			{
+				postf += stack[stack.length-1] + " ";
+				stack.pop();
+			}
 		}
 		else
-			iscorrect = false;
-	}
-	
-	if (nbrac == 0)
-	{
-		while (stack.length != 0)
 		{
-			postf += stack[stack.length-1] + " ";
-			stack.pop();
+			iscorrect = false;
+			break;
 		}
 	}
-	else
-		iscorrect = false;
-		
-	var mytree = [];
-	var par = -1;
+	
+	//Построение дерева
 	if (iscorrect)
 	{
+		var mytree = [];
+		var par = -1;
 		for (i = postf.length-2; i >= 0; i--)
 		{
 			var name = "";
@@ -269,51 +325,51 @@ function parse() {
 	}
 	
 
-// ************** Generate the tree diagram *****************
-    var margin = {top: 30, right: 0, bottom: 0, left: 0},
-            width = 1000 - margin.right - margin.left,
-            height = 600 - margin.top - margin.bottom;
-    var i = 0;
+  	//Рисование дерева
+    	var margin = {top: 30, right: 0, bottom: 0, left: 0},
+            	width = 1000 - margin.right - margin.left,
+            	height = 600 - margin.top - margin.bottom;
+	i = 0;
 
-    var tree = d3.layout.tree()
-            .size([height, width]);
+    	var tree = d3.layout.tree()
+            	.size([height, width]);
 
-    var diagonal = d3.svg.diagonal()
-            .projection(function (d) {
-                return [d.x, d.y];
-            });
+    	var diagonal = d3.svg.diagonal()
+            	.projection(function (d) {
+                	return [d.x, d.y];
+            	});
 
-    var svg = d3.select("body").append("svg")
-            .attr("width", width + margin.right + margin.left)
-            .attr("height", height + margin.top + margin.bottom)
-            .append("g")
-            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+	 var svg = d3.select("body").append("svg")
+            	.attr("width", width + margin.right + margin.left)
+            	.attr("height", height + margin.top + margin.bottom)
+            	.append("g")
+            	.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-    root = mytree[0];
-    update(root);
+    	root = mytree[0];
+    	update(root);
 
-    function update(source) {
+    	function update(source) {
 
-// Compute the new tree layout.
+	// Compute the new tree layout.
         var nodes = tree.nodes(root).reverse(),
                 links = tree.links(nodes);
 
-// Normalize for fixed-depth.
+	// Normalize for fixed-depth.
         nodes.forEach(function (d) {
-            d.y = d.depth * 100;
-        });
+            	d.y = d.depth * 100;
+        	});
 
-// Declare the nodes?
+	// Declare the nodes?
         var node = svg.selectAll("g.node")
                 .data(nodes, function (d) {
-                    return d.id || (d.id = ++i);
-                });
+                    	return d.id || (d.id = ++i);
+        	});
 
-// Enter the nodes.
+	// Enter the nodes.
         var nodeEnter = node.enter().append("g")
                 .attr("class", "node")
                 .attr("transform", function (d) {
-                    return "translate(" + d.x + "," + d.y + ")";
+                    	return "translate(" + d.x + "," + d.y + ")";
                 });
 
         nodeEnter.append("circle")
@@ -321,39 +377,39 @@ function parse() {
                 .style("fill", "#fff");
 
         nodeEnter.append("text")
-//.attr("y", function(d) {
-//return d.children || d._children ? -18 : 18; })
+	//.attr("y", function(d) {
+	//return d.children || d._children ? -18 : 18; })
                 .attr("dy", ".35em")
                 .attr("text-anchor", "middle")
                 .text(function (d) {
-                    return d.name;
+                    	return d.name;
                 })
-//.style("fill-opacity", 1);
+	//.style("fill-opacity", 1);
 
-// Declare the links?
+	// Declare the links?
         var link = svg.selectAll("path.link")
                 .data(links, function (d) {
-                    return d.target.id;
+                    	return d.target.id;
                 });
 
-// Enter the links.
+	// Enter the links.
         link.enter().insert("path", "g")
                 .attr("class", "link")
                 .attr("d", diagonal);
 
-    }
-    if (!iscorrect) {
-        d3.select("svg").remove();
-    }
+    	}
+    
+    	if (!iscorrect) {
+        	d3.select("svg").remove();
+    	}
    
 }
 
 function reset() {
-    document.getElementById("field").value = '';
-    document.getElementById("output").innerHTML = '';
-    text = '';
-    d3.select("svg").remove();
-
+    	document.getElementById("field").value = '';
+    	document.getElementById("output").innerHTML = '';
+    	text = '';
+    	d3.select("svg").remove();
 }
 
 </script>
