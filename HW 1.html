@@ -81,7 +81,7 @@ function parse() {
 	var nbrac = 0;		//Количество скобок
 	
 	var iscorrect = true;	//Корректно ли выражение
-	var error; 				//Сообщение об ошибке
+	var error; 		//Сообщение об ошибке
 	
 	
 	//Проверка скобок
@@ -164,7 +164,7 @@ function parse() {
 					postf += "0 ";
 					stack.push(c); 
 				}
-				else if (!beg && !op)//Операнд -
+				else if (!beg && !op)//Оператор -
 				{
 					if (stack.length == 0)
 						stack.push(c);
@@ -420,7 +420,7 @@ function parse() {
 	else
 	{
 		d3.select("svg").remove();
-        document.getElementById("output").innerHTML = "Error: " + error;
+        	document.getElementById("output").innerHTML = "Error: " + error;
 	}
    
 }
