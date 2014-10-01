@@ -32,6 +32,11 @@
 	       	font-size: 13px;
        }
        
+       .error {
+       		font-family: verdana, sans-serif;
+	       	font-size: 14px;
+       }
+       
    </style>
    </HEAD>
 <BODY>
@@ -43,11 +48,12 @@
 <input type = "text" id = "field" class = "custom" size = "70" style = "" autofocus>
 <input type = "button" id = "parse_but" onclick = "parse()" value = "Parse" style = "font-size: 20px;">
 <input type = "button" id = "reset_but" onclick = "reset()" value = "Reset" style = "font-size: 20px;">
-<p id = "output" ></p>
 
 <FONT face = "verdana" size = "2">
 <P>Use next symbols: a-z, 0-9, +, -, *, /, ^, (, ).</P>
 </FONT>
+
+<p id = "output" class = "error"></p>
 
 <script>
 $(document).ready(function(){
@@ -64,19 +70,22 @@ $(document).ready(function(){
 
 function parse() {
 	d3.select("svg").remove();
+	
 	var str = document.getElementById("field").value; //Строка с выражением
-	var stack = [];		//Стек для проверки скобок и записи операндов
+	var stack = [];		//Стек для проверки скобок и записи операторов
 	var c = '';		//Текущий символ
 	var i;			//Итератор текущего символа в строке
 	var postf = "";		//Строка, содержащая постфиксную запись
-	var op = true;		//Был ли последним операнд
-	var beg = true;		//Начало ли выражения рассматривается (для скобок)
+	var op = true;		//Был ли последним оператор
+	var beg = true;		//Начало ли выражения (для выражений в скобках)
 	var nbrac = 0;		//Количество скобок
 	
 	var iscorrect = true;	//Корректно ли выражение
+	var error; 				//Сообщение об ошибке
+	
 	
 	//Проверка скобок
-	for (i =0; i <str.length; i++)
+	for (i = 0; i <str.length; i++)
 	{
 		c = str[i];
 		if (c == '(' || c == '{' || c == '[')
@@ -88,6 +97,7 @@ function parse() {
 			else
 			{
 				iscorrect = false;
+				error = 'Incorrect order of brackets!';
 				break;
 			}
 		}
@@ -98,6 +108,7 @@ function parse() {
 			else
 			{
 				iscorrect = false;
+				error = 'Incorrect order of brackets!';
 				break;
 			}
 		}
@@ -108,15 +119,19 @@ function parse() {
 			else
 			{
 				iscorrect = false;
+				error = 'Incorrect order of brackets!';
 				break;
 			}
 		}
 	}
 	
 	if (stack.length != 0)
+	{
 		iscorrect = false;
+		error = 'Incorrect order of brackets!';
+	}
 	
-	//Проверка операндов
+	//Проверка операций
 	if (iscorrect)
 	{
 		stack = [];
@@ -173,6 +188,7 @@ function parse() {
 				else
 				{
 					iscorrect = false;
+					error = 'Incorrect use of operators or operands!';
 					break;
 				}
 				
@@ -267,12 +283,14 @@ function parse() {
 				else
 				{
 					iscorrect = false;
+					error = 'Incorrect use of brackets!';
 					break;
 				}
 			}
-			else
+			else if (c != ' ')
 			{
 				iscorrect = false;
+				error = 'Incorrect use of operators or operands!';
 				break;
 			}
 		}
@@ -286,7 +304,10 @@ function parse() {
 			}
 		}
 		else
+		{
 			iscorrect = false;
+			error = 'Incorrect use of backets!';
+		}
 	}
 	
 	//Построение дерева
@@ -320,9 +341,7 @@ function parse() {
 			
 			while (par!= -1 && mytree[par].nchildren == 2)
 					par = mytree[par].parent;
-		}
-	}
-	
+		}	
 
   	//Рисование дерева
     	var margin = {top: 30, right: 0, bottom: 0, left: 0},
@@ -397,10 +416,12 @@ function parse() {
                 .attr("d", diagonal);
 
     	}
-    
-    	if (!iscorrect) {
-        	d3.select("svg").remove();
-    	}
+	}
+	else
+	{
+		d3.select("svg").remove();
+        document.getElementById("output").innerHTML = "Error: " + error;
+	}
    
 }
 
