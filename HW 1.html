@@ -102,9 +102,9 @@ function parse() {
 				break;
 			}
 		}
-		else if (c == ')')
+		else if (c == ']')
 		{
-			if (stack[stack.length-1] == '(')
+			if (stack[stack.length-1] == '[')
 				stack.pop();
 			else
 			{
@@ -113,6 +113,9 @@ function parse() {
 			}
 		}
 	}
+	
+	if (stack.length != 0)
+		iscorrect = false;
 	
 	//Проверка операндов
 	if (iscorrect)
@@ -284,10 +287,7 @@ function parse() {
 			}
 		}
 		else
-		{
 			iscorrect = false;
-			break;
-		}
 	}
 	
 	//Построение дерева
