@@ -65,16 +65,16 @@ $(document).ready(function(){
 
 function parse() {
 	d3.select("svg").remove();
-	var str = document.getElementById("field").value;
-	var stack = [];
-	var c = '';
-	var i;
-	var postf = "";
-	var op = true;
-	var beg = true;
-	var nbrac = 0;
+	var str = document.getElementById("field").value; //Строка с выражением
+	var stack = [];		//Стек для записи операндов
+	var c = '';		//Текущий символ
+	var i;			//Итератор текущего символа в строке
+	var postf = "";		//Строка, содержащая постфиксную запись
+	var op = true;		//Был ли последним операнд
+	var beg = true;		//Начало ли выражения рассматривается (для скобок)
+	var nbrac = 0;		//Количество скобок
 	
-	var iscorrect = true;
+	var iscorrect = true;	//Корректно ли выражение
 
 	for (i = 0; i < str.length; i++)
 	{
