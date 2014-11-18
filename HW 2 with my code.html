@@ -1,0 +1,764 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+   <HEAD>
+      <TITLE>
+         Computer algebra. Shatonova L.M.
+      </TITLE>
+   <script src="http://d3js.org/d3.v3.min.js"></script>
+   <style>
+   
+       .link {
+           fill: none;
+           stroke: #ccc;
+           stroke-width: 2px;
+       }
+       
+       .textfield {
+           background: white;
+           border: 1px solid lightgray;
+           height: 30px;
+           font-family: verdana, sans-serif;
+           font-size: 12px;
+       }
+       
+       input[type="text"]:focus {
+           outline: none;
+       }
+       
+       .button {
+           width: 60px;
+           height: 27px;
+           border-radius: 1px; 
+           border: 0px; 
+           background: gainsboro;
+           font-family: verdana, sans-serif;
+           font-size: 13px; 
+       }
+       
+       .error {
+           font-family: verdana, sans-serif;
+           font-size: 14px;
+           color: darkcyan;
+           padding-left: 3px;
+       }
+       
+     .link {
+       font-family: verdana, sans-serif;
+       font-size: 14px;
+       color: darkcyan;
+       position:absolute; 
+       top:85px; 
+       left:400px;
+     }
+       
+   </style>
+   </HEAD>
+<BODY>
+
+<FONT face = "verdana">
+  <P style = "padding-left: 3px;">Input expression:</P>
+</FONT>
+<a href="http://lanashatonova.1gb.ru/history.tex" class = "link">History</a>
+<input type = "text" id = "field" class = "textfield" onkeydown = "if(event.keyCode==13){parse();}" oninput = "textchanged()" size = "70" autofocus>
+<input type = "button" id = "parse_but" class = "button" onclick = "parse()" value = "Parse">
+<input type = "button" id = "reset_but" class = "button" onclick = "reset()" value = "Reset">
+
+<FONT face = "verdana" size = "2">
+<P style = "padding-left: 3px;">Use next symbols: a-z, 0-9, +, -, *, /, ^, (, ).</P>
+</FONT>
+
+<p id = "errmessage" class = "error"></p>
+
+<canvas id="canvas"></canvas>
+
+<script>
+$(document).ready(function(){
+    $('#field').keypress(function(e){
+        if(e.keyCode==13)
+            $('#parse_but').click();
+        if(e.keyCode==27)
+            $('#reset_but').click();
+    });
+});
+</script>
+
+<script language="javascript" type="text/javascript">
+
+function textchanged() {
+  clearcanvas();
+  document.getElementById("errmessage").innerHTML = '';
+}
+
+function parse() {
+  
+  clearcanvas();
+  
+  if (document.getElementById("field").value != '')
+  {
+    var date = new Date();
+    
+    var str = document.getElementById("field").value;   //Input expression
+    var stack = [];                      //Stack for brackets and operators
+    var c = '';                         //Current symbol from the expression  
+    var i;                            //Iterator of the current symbol
+    var postf = "";                      //Postfix notation
+    var op = true;                      //Is the last symbol an operator
+    var beg = true;                      //Is it a beginng of an expression (for expressions in brackets) 
+    var nbrac = 0;                      //Number of brackets used
+    
+    var iscorrect = true;    //Is the expression correct
+    var error = "";             //Error message
+    
+    
+    //Brackets check
+    for (i = 0; i <str.length; i++)
+    {
+      c = str[i];
+      if (c == '(' || c == '{' || c == '[')
+        stack.push(c);
+      else if (c == ')')
+      {
+        if (stack[stack.length-1] == '(')
+          stack.pop();
+        else
+        {
+          iscorrect = false;
+          error = 'Incorrect use of brackets: ' + c;
+          break;
+            }
+      }
+      else if (c == '}')
+      {
+        if (stack[stack.length-1] == '{')
+          stack.pop();
+        else
+        {
+          iscorrect = false;
+          error = 'Incorrect use of brackets: ' + c;
+          break;
+            }
+      }
+      else if (c == ']')
+      {
+        if (stack[stack.length-1] == '[')
+          stack.pop();
+        else
+        {
+          iscorrect = false;
+          error = 'Incorrect use of brackets: ' + c;
+          break;
+            }
+      }
+    }
+    
+    if (stack.length != 0)
+    {
+      iscorrect = false;
+      error = 'Incorrect use of brackets: ' + stack[stack.length - 1];
+    }
+    
+    //Operations check
+    if (iscorrect)
+    {
+      stack = [];
+      for (i = 0; i < str.length; i++)
+      {
+        c = str[i];
+        if (c >= 'a' && c <= 'z' && op) //a-z
+        {
+          postf += c + " "; 
+          op = false;
+          beg = false;
+        }
+        else if (c >= '0' && c <= '9' && op) //0-9
+        {  
+          var dot = false;
+          while ((c >= '0' && c <= '9') || c == '.' || c == ',')
+          {
+            if ((c == '.' || c == ',') && !dot)
+            {
+              dot = true;
+              c = '.';
+            }
+            else if ((c == '.' || c == ',') && dot)
+            {
+              iscorrect = false;
+              error = 'Incorrect use of operators or operands:' + c;
+              break;
+            }
+            postf += c;
+            i++;
+            c = str[i];
+          }
+          i--;
+          postf += " ";
+          op = false;
+          beg = false;
+        }
+        else if (c == '-')
+        {
+          if (beg && op) //Beginning of the expression is a negative number
+          {
+            postf += "0 ";
+            stack.push(c); 
+          }
+          else if (!beg && !op)//Operator -
+          {
+            if (stack.length == 0)
+              stack.push(c);
+            else
+            {
+              if (stack[stack.length-1] == '(' || stack[stack.length-1] == '{' || stack[stack.length-1] == '[')
+                stack.push(c);
+              else
+              {
+                while (stack[stack.length-1] != '(' && stack[stack.length-1] != '{' && stack[stack.length-1] != '[')
+                {
+                  postf += stack[stack.length-1] + " ";
+                  stack.pop();
+                  if (stack.length == 0)
+                    break;
+                      }
+                stack.push(c);
+              }
+            }
+          }
+          else
+          {
+            iscorrect = false;
+            error = 'Incorrect use of operators or operands:' + c;
+            break;
+          }
+          
+          op = true;
+          beg = false;
+        }
+        else if (c == '+' && !op)
+        {
+          if (stack.length == 0)
+            stack.push(c);
+          else
+          {
+            if (stack[stack.length-1] == '(' || stack[stack.length-1] == '{' || stack[stack.length-1] == '[')
+              stack.push(c);
+            else
+            {
+              while (stack[stack.length-1] != '(' && stack[stack.length-1] != '{' && stack[stack.length-1] != '[')
+              {
+                postf += stack[stack.length-1] + " ";
+                stack.pop();
+                if (stack.length == 0)
+                  break;
+                    }
+              stack.push(c);
+            }
+          }
+          op = true;
+          beg = false;
+        }
+        else if ((c == '*' || c == '/') && !op)
+        {
+          if (stack.length == 0)
+            stack.push(c);
+          else
+          {
+            if (stack[stack.length-1] == '(' || stack[stack.length-1] == '{' || stack[stack.length-1] == '[' || stack[stack.length-1] == '+' || stack[stack.length-1] == '-')
+              stack.push(c);
+            else
+            {
+              while (stack[stack.length-1] != '+' && stack[stack.length-1] != '-' && stack[stack.length-1] != '(' && stack[stack.length-1] != '{' && stack[stack.length-1] != '[')
+              {
+                postf += stack[stack.length-1] + " ";
+                stack.pop();
+                if (stack.length == 0)
+                  break;
+                    }
+              stack.push(c);
+            }
+          }
+          op = true;
+          beg = false;
+        }
+        else if (c == '^' && !op)
+        {
+          if (stack.length == 0)
+            stack.push(c);
+          else
+          {
+            while (stack[stack.length-1] == '^')
+            {
+              postf += stack[stack.length-1] + " ";
+              stack.pop();
+              if (stack.length == 0)
+                break;  
+                  }
+            stack.push(c);
+          }
+          op = true;
+          beg = false;
+        }
+        else if ((c == '(' || c == '{' || c == '[') && op)
+        {
+          stack.push(c); 
+          op = true;
+          beg = true;
+          nbrac++;
+        }
+        else if ((c == ')' || c == '}' || c == ']') && !op && nbrac > 0)
+        {
+          if (str[i-1] != '(' && str[i-1] != '{' && str[i-1] != '[')
+          {
+            while (stack[stack.length-1] != '(' && stack[stack.length-1] != '{' && stack[stack.length-1] != '[')
+            {
+              postf += stack[stack.length-1] + " ";
+              stack.pop();
+            }
+            stack.pop();
+            op = false;
+            beg = false;
+            nbrac--;
+          }
+          else
+          {
+            iscorrect = false;
+            error = 'Incorrect use of brackets: ' + c;
+            break;
+              }
+        }
+        else if (c != ' ')
+        {
+          iscorrect = false;
+          error = 'Incorrect use of operators or operands: ' + c;
+          break;
+            }
+      }
+      
+      if (i == str.length)
+      {
+        if (nbrac == 0)
+        {
+          while (stack.length != 0)
+          {
+            postf += stack[stack.length-1] + " ";
+            stack.pop();
+          }
+        }
+        else
+        {
+          iscorrect = false;  
+          error = 'Incorrect use of backets!';
+        }
+        
+        if (op)
+        {
+          iscorrect = false;
+          error = 'Incorrect use of operators or operands: ' + c;
+        }
+      }
+    }
+    
+    //Build a tree
+    var textree = "";
+    if (iscorrect)
+      textree = buildtree(postf);
+    
+    //Write to history file
+    //Change some strings
+    var datestr = date.toString();
+    while (datestr.indexOf(' ') != -1)
+      datestr = datestr.replace(' ', '_');
+    datestr = datestr.replace('+', 'plus');
+    var texexpr = str;
+    if (iscorrect)
+    {
+      while (texexpr.indexOf(',') != -1)
+        texexpr = texexpr.replace(',', '.');
+    }
+    while (texexpr.indexOf(' ') != -1)
+      texexpr = texexpr.replace(' ', '');
+    while (texexpr.indexOf('{') != -1)
+      texexpr = texexpr.replace('{', '(');
+    while (texexpr.indexOf('}') != -1)
+      texexpr = texexpr.replace('}', ')');
+    while (texexpr.indexOf('[') != -1)
+      texexpr = texexpr.replace('[', '(');
+    while (texexpr.indexOf(']') != -1)
+      texexpr = texexpr.replace(']', ')');
+    for (i = 0; i < texexpr.length; i++)
+    {
+      if (str[i] == '^' && i != texexpr.length - 1)
+      {
+        i++;
+        texexpr = texexpr.substr(0,i) + '{' + texexpr.substr(i,texexpr.length - i);
+        i++;
+        c = texexpr[i];
+        while (c != '+' && c != '-' && c != '*' && c != '/')
+        {
+          if (c == '^')
+            texexpr = texexpr.substr(0,i) + '*' + texexpr.substr(i+1,texexpr.length - i - 1);
+          else if (c == '(')
+          {
+            var nbrac = 1;
+            while (nbrac != 0)
+            {
+              i++;
+              c = texexpr[i];
+              if (c == '(')
+                nbrac++;
+              else if (c == ')')
+                nbrac--;   
+            }
+          }
+          i++;
+          if (i != texexpr.length)
+            c = texexpr[i];
+          else
+            break;
+              }
+        texexpr = texexpr.substr(0,i) + '}' + texexpr.substr(i,texexpr.length - i);
+      }
+    }
+    while (texexpr.indexOf('+') != -1)
+      texexpr = texexpr.replace('+', 'plus');
+    while (texexpr.indexOf('/') != -1)
+      texexpr = texexpr.replace('/', ':');
+         
+    var url = "savehistory.php?date=" + datestr + "&expr=" + texexpr + "&success=" + iscorrect + "&tree=" + textree;
+    var phpstart = new Image();
+    phpstart.src = url;
+    
+    //Show errors
+    document.getElementById("errmessage").innerHTML = error; 
+  }  
+}
+
+function reset() {
+      document.getElementById("field").value = '';
+      document.getElementById("errmessage").innerHTML = '';
+      text = '';
+      clearcanvas();
+}
+
+function buildtree(postf) {
+  var tree = [];
+  
+  //Define parameters of drawing
+  var border = 40;
+  var betweenx = 100;
+  var betweeny = 90;
+  var nodecolor = "darkcyan";
+  var nodefillcolor = "white";
+  var noderad = 10;
+  var nodewidth = 3;
+  var linecolor =  "lightgray";
+  var linewidth = 2;
+  var textcolor = "black";
+  var textfont = "9pt Verdana";
+  
+  //Put nodes to the tree
+  var parent = -1;
+  var level = 0;
+  for (var i = postf.length - 2; i >= 0; i--)
+  {
+    var value = "";
+    var children = [-1, -1];
+    while (postf[i] != ' ')
+      {
+        value = postf[i] + value;
+          i--;
+          if (i == -1)
+            break;
+      }   
+      var op = (value[0] == '+' || value[0] == '-' || value[0] == '*' || value[0] == '/' || value[0] == '^');
+      
+      tree.push({"value": value, "parent": parent, "children": children, "level": level, "coord": []});
+      
+      //Add child (current node) to the parent
+      if (parent != -1)
+      {
+        if (tree[parent].children[1] == -1)
+          tree[parent].children[1] = tree.length - 1;
+        else
+          tree[parent].children[0] = tree.length - 1;
+      }
+      //Define parent for the next node
+      if (op)
+      {
+        parent = tree.length - 1;
+        level++;
+      }
+      else
+      {
+        while (tree[parent].children[0] != -1)
+        {
+          parent = tree[parent].parent;
+          level--;
+          if (parent == -1)
+            break;
+        }
+      }
+  }
+  
+  //Define coordinates for drawing
+  if (tree.length > 0)
+  {
+    //Find tree level with maximum number of nodes
+    var levellen = [];
+    for (var i = 0; i < tree.length; i++)
+    {
+      while (tree[i].level >= levellen.length)
+        levellen.push(0);
+      levellen[tree[i].level]++;
+    }
+    var maxlevel;
+    var maxlevellen = 0;
+    for (var i = 0; i < levellen.length; i++)
+    {
+      if (levellen[i] >= maxlevellen)
+      {
+        maxlevellen = levellen[i];
+        maxlevel = i;
+      }
+    }
+    
+    //Add nodes' coordinates
+    var curcoordx = border;
+    var curcoordy = border + maxlevel*betweeny;
+    var tempup = [];
+    var tempdown = [];
+    //Define coordinates of the nodes on the maxlevel
+    for (var i = tree.length - 1; i >= 0; i--)
+    {
+      if (tree[i].level == maxlevel)
+      {
+        tempup.push(i);
+        tempdown.push(i);
+        var curi;
+        if (tempup.length == 1)
+        {
+          curi = i;
+          while (tree[curi].children[0] != -1)
+          {
+            curcoordx += betweenx / 2;
+            curi = tree[curi].children[0];
+          }
+        }
+        else if (prevgetchild > 0)
+        {
+          curi = i;
+          while (tree[curi].children[0] != -1 && prevgetchild > 0)
+          {
+            curcoordx += betweenx / 2;
+            prevgetchild--;
+            curi = tree[curi].children[0];
+          }
+        }
+        tree[i].coord = new Array(curcoordx, curcoordy);
+        
+        curi = i;
+        prevgetchild = 0;
+        while (tree[curi].children[1] != -1)
+        {
+          prevgetchild++;
+          curi = tree[curi].children[0];
+        }
+        curcoordx += betweenx;
+      }
+    }
+    //Go up
+    while (tempup.length != 0)
+    {
+      var i = tempup[0];
+      var par = tree[i].parent;
+      if (par != -1)
+      {
+        if (tree[par].coord.length == 0)
+        {
+          curcoordy = border + tree[par].level * betweeny;
+          if (tree[tree[par].children[0]].coord.length != 0 && tree[tree[par].children[1]].coord.length != 0)
+          {
+            tree[par].coord = new Array((tree[tree[par].children[0]].coord[0] + tree[tree[par].children[1]].coord[0]) / 2, curcoordy);
+          }
+          else
+          {
+            var kc = 0; //Known child
+            var uc = 1; //Unknown child
+            if (i == tree[par].children[1])
+            {
+              kc = 1;
+              uc = 0;
+            }
+            var curik = i;
+            var curiu = tree[par].children[uc];
+            var stepx = 0;
+            while (tree[curik].children[uc] != -1 && tree[curiu].children[kc] != -1)
+            {
+              stepx += Math.abs(tree[tree[curik].children[uc]].coord[0] - tree[curik].coord[0]);
+              stepx += betweenx / 2;
+              curik = tree[curik].children[uc];
+              curiu = tree[curiu].children[kc];
+            } 
+            stepx += betweenx;
+            curcoordy = border + tree[i].level * betweeny;
+            if (uc == 0)
+              tree[tree[par].children[uc]].coord = new Array(tree[i].coord[0] - stepx, curcoordy);
+            else
+              tree[tree[par].children[uc]].coord = new Array(tree[i].coord[0] + stepx, curcoordy);
+            
+            curcoordy = border + tree[par].level * betweeny;
+            tree[par].coord = new Array((tree[tree[par].children[0]].coord[0] + tree[tree[par].children[1]].coord[0]) / 2, curcoordy);
+          
+            tempdown.push(tree[par].children[uc]);
+          }
+          tempup.push(par);  
+        }        
+      }
+      tempup.splice(0,1);
+    }
+    //Go down
+    while (tempdown.length != 0)
+    {
+      var i = tempdown[0];
+      var child = tree[i].children[0];
+      if (child != -1)
+      {
+        curcoordy = border + tree[child].level * betweeny;
+        tree[child].coord = new Array(tree[i].coord[0] - betweenx / 2, curcoordy);
+        tempdown.push(child);
+        child = tree[i].children[1];
+        tree[child].coord = new Array(tree[i].coord[0] + betweenx / 2, curcoordy);
+        tempdown.push(child);
+      }
+      tempdown.splice(0,1);
+    }
+    //Final coordinates' check
+    var stepx = 0;
+    for (var i = 0; i < tree.length; i++)
+    {
+      var newstepx = border - tree[i].coord[0];
+      if (newstepx > stepx)
+        stepx = newstepx;
+    }
+    if (stepx > 0)
+    {
+      for (var i = 0; i < tree.length; i++)
+        tree[i].coord[0] += stepx;
+    }
+        
+    //Draw tree
+    var maxx = 0;
+    for (var i = 0; i < tree.length; i++)
+    {
+      if (tree[i].coord[0] > maxx)
+        maxx = tree[i].coord[0];
+    }
+    var canv = document.getElementById('canvas');
+    canv.width = border + maxx;
+    canv.height = 2 * border + (levellen.length - 1) * betweeny;
+      var ctx = canv.getContext('2d');
+      ctx.font = textfont;
+    for (var i = 0; i < tree.length; i++)
+    {
+      var child1 = tree[i].children[0];
+      var child2 = tree[i].children[1];
+      //Draw lines
+      if (child1 != -1)
+      {
+        ctx.beginPath();
+        ctx.moveTo(tree[i].coord[0], tree[i].coord[1]);
+        ctx.lineTo(tree[child1].coord[0], tree[child1].coord[1]);
+        ctx.moveTo(tree[i].coord[0], tree[i].coord[1]);
+        ctx.lineTo(tree[child2].coord[0], tree[child2].coord[1]);
+        ctx.strokeStyle = linecolor;
+        ctx.lineWidth = linewidth;
+        ctx.stroke();
+      }
+      //Draw node
+      ctx.beginPath();
+      ctx.moveTo(tree[i].coord[0] + noderad / 2, tree[i].coord[1]);
+      ctx.arc(tree[i].coord[0], tree[i].coord[1], noderad, 0, 2 * Math.PI, true);
+      ctx.strokeStyle = nodecolor;
+      ctx.fillStyle = nodefillcolor;
+      ctx.lineWidth = nodewidth;
+      ctx.stroke();
+      ctx.fill();
+      //Add value of the node
+      ctx.beginPath();
+      ctx.moveTo(tree[i].coord[0] + noderad / 2, tree[i].coord[1]);
+      ctx.fillStyle = textcolor;
+      ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+      ctx.fillText(tree[i].value, tree[i].coord[0], tree[i].coord[1]);   
+    }
+    
+    //Make a tex tree ezpression
+    var textree = "\\Tree[.";
+    if (tree[0].value == "+")
+        textree += "plus ";
+      else if (tree[0].value == "*")
+        textree += "$\\cdot$ ";
+      else if (tree[0].value == "/")
+        textree += ": ";
+      else if (tree[0].value == "^")
+        textree += "\\^{} ";
+      else
+        textree += tree[0].value + " ";      
+    var nodes = [];
+    if (tree[0].children[0] != -1)
+    {
+      nodes.push(tree[0].children[1]);
+      nodes.push(tree[0].children[0]);
+    }    
+    var brackets = 1;
+    var curlevel = 1;
+    while (nodes.length != 0)
+    {
+      var curnode = nodes.pop();
+      while (tree[curnode].level < curlevel)
+      {
+        textree += "] ";
+        brackets--;
+        curlevel--;
+      } 
+      if (tree[curnode].children[0] != -1)
+      {
+        textree += "[.";
+        brackets++;
+        curlevel++;
+        nodes.push(tree[curnode].children[1]);
+        nodes.push(tree[curnode].children[0]);
+      }
+      
+      if (tree[curnode].value == "+")
+        textree += "plus ";
+      else if (tree[curnode].value == "*")
+        textree += "$\\cdot$ ";
+      else if (tree[curnode].value == "/")
+        textree += ": ";
+      else if (tree[curnode].value == "^")
+        textree += "\\^{} ";
+      else
+        textree += tree[curnode].value + " ";      
+    }
+    while (brackets > 0)
+    {
+      textree += "] ";
+      brackets--;
+    }
+    
+    return textree;
+  }
+  
+  return "";
+}
+
+function clearcanvas()
+{
+  var canv = document.getElementById('canvas');
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canv.width, canv.height);
+}
+
+</script>
+</BODY>
+</HTML>
